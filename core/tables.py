@@ -9,6 +9,7 @@ class JwtRole(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     role = Column(String(64), unique=True)
     bound_claims = Column(Text)
+    nomad_claims = Column(Text)
 
 
 class JwtConfig(Base):
