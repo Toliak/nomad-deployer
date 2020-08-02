@@ -124,3 +124,8 @@ class NomadClaimsService:
     def check_nomad_config(config, validator):
         NomadClaimsService._check_nomad_config_internal(config, validator, 'ROOT')
         return True
+
+class JwtConfigService:
+    @staticmethod
+    def validate(data, url):
+        pass

@@ -1,4 +1,4 @@
-from aiohttp.web_exceptions import *
+from aiohttp.web_exceptions import HTTPUnauthorized, HTTPBadRequest, HTTPUnsupportedMediaType
 
 
 class HTTPApiAdminTokenInvalid(HTTPUnauthorized):
@@ -43,3 +43,28 @@ class HTTPApiRoleNotExist(HTTPBadRequest):
 class HTTPApiRoleDataInvalid(HTTPBadRequest):
     def __init__(self, key):
         super().__init__(reason=f'Role data key "{key}" is invalid')
+
+
+class HTTPApiConfigAlreadyExists(HTTPBadRequest):
+    def __init__(self, rolename):
+        super().__init__(reason=f'Config "{rolename}" already exists')
+
+
+class HTTPApiConfigNotExist(HTTPBadRequest):
+    def __init__(self, rolename):
+        super().__init__(reason=f'Config "{rolename}" does not exist')
+
+
+class HTTPApiConfigDataInvalid(HTTPBadRequest):
+    def __init__(self, key):
+        super().__init__(reason=f'Config data key "{key}" is invalid')
+
+
+class HTTPApiContentTypeInvalid(HTTPUnsupportedMediaType):
+    def __init__(self):
+        super().__init__(reason=f'Supports only "application/json" Content-Type')
+
+
+class HTTPApiEmptyBody(HTTPBadRequest):
+    def __init__(self):
+        super().__init__(reason=f'Request has an empty body')
