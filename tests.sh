@@ -4,4 +4,4 @@ export PYTHONPATH=$PWD
 
 alembic upgrade head
 
-exec pytest
+exec coverage run --source=. --omit=venv/*/** -m pytest
