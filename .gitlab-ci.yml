@@ -1,0 +1,42 @@
+stages:
+  - test
+
+variables:
+  NOMAD_ADDR: "http://skeak.toliak.ru:4646/"
+  DOCKER_IMAGE: "nomad-deployer"
+
+.env_docker: &env_docker
+  image: docker:19.03.12
+
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+
+  services:
+    - docker:19.03.12-dind
+
+.nomad: &nomad
+  before_script:
+    - apt-get update -y
+    - apt-get install -y unzip wget
+    - wget https://releases.hashicorp.com/nomad/0.11.3/nomad_0.11.3_linux_amd64.zip -O nomad.zip
+    - unzip nomad.zip
+    - mv nomad /bin/nomad
+    - chmod +x /bin/nomad
+    - rm nomad.zip
+
+test:
+  image: python:3.7.8-slim-stretch
+
+  variables:
+    SQLALCHEMY_URI: "sqlite:///db_test:sqlite"
+    ADMIN_TOKEN: "admin_token_test"
+
+  before_script:
+    - apt-get update -y
+    - apt-get install -y gcc
+    - pip install -r requirements.txt
+
+  stage: test
+
+  script:
+    - ./tests.sh
