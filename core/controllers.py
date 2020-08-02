@@ -214,3 +214,4 @@ class ConfigView(AdminView):
             )
 
             return web.json_response(dict(success=True))
+

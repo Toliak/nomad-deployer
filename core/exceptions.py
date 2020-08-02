@@ -1,4 +1,4 @@
-from aiohttp.web_exceptions import HTTPUnauthorized, HTTPBadRequest, HTTPUnsupportedMediaType
+from aiohttp.web_exceptions import HTTPUnauthorized, HTTPBadRequest, HTTPUnsupportedMediaType, HTTPServiceUnavailable
 
 
 class HTTPApiAdminTokenInvalid(HTTPUnauthorized):
@@ -11,7 +11,7 @@ class HTTPApiNomadClaimsValidationError(HTTPBadRequest):
         if key:
             super().__init__(reason=f'nomad_claims validation error at key: {key}')
         else:
-            super().__init__(reason=f'nomad_claims validation: undefined key')
+            super().__init__(reason=f'nomad_claims validation: undefined')
 
 
 class HTTPApiBoundClaimsValidationError(HTTPBadRequest):
@@ -19,7 +19,7 @@ class HTTPApiBoundClaimsValidationError(HTTPBadRequest):
         if key:
             super().__init__(reason=f'bound_claims validation error at key: {key}')
         else:
-            super().__init__(reason=f'bound_claims validation: undefined key')
+            super().__init__(reason=f'bound_claims validation: undefined')
 
 
 class HTTPApiNomadClaimsCheckError(HTTPBadRequest):
@@ -27,7 +27,15 @@ class HTTPApiNomadClaimsCheckError(HTTPBadRequest):
         if key:
             super().__init__(reason=f'Nomad check error at key: {key}')
         else:
-            super().__init__(reason=f'Nomad check error at key')
+            super().__init__(reason=f'Nomad check error at key: undefined')
+
+
+class HTTPApiBoundClaimsCheckError(HTTPBadRequest):
+    def __init__(self, key=None):
+        if key:
+            super().__init__(reason=f'Bound claims check error at key: {key}')
+        else:
+            super().__init__(reason=f'Bound claims check error at key: undefined')
 
 
 class HTTPApiRoleAlreadyExists(HTTPBadRequest):
@@ -68,3 +76,23 @@ class HTTPApiContentTypeInvalid(HTTPUnsupportedMediaType):
 class HTTPApiEmptyBody(HTTPBadRequest):
     def __init__(self):
         super().__init__(reason=f'Request has an empty body')
+
+
+class HTTPApiNomadServiceTransformException(HTTPBadRequest):
+    def __init__(self, message):
+        super().__init__(reason=f'Transform error: {message}')
+
+
+class HTTPApiNomadServiceRunException(HTTPBadRequest):
+    def __init__(self, message):
+        super().__init__(reason=f'Run error: {message}')
+
+
+class HTTPApiConfigServiceJwksError(HTTPServiceUnavailable):
+    def __init__(self, url):
+        super().__init__(reason=f'Failed to retrieve JWKS from: {url}')
+
+
+class HTTPApiConfigServiceJWTError(HTTPBadRequest):
+    def __init__(self, url):
+        super().__init__(reason=f'{url}')

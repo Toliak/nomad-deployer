@@ -22,19 +22,19 @@ async def prepare_db(db):
 @pytest.fixture
 def nomad_validator():
     return dict(
-        Name='^gitlab$',
+        Name='^test-deployer$',
         Type='^service$',
         TaskGroups=[dict(
-            Name='^gitlab$',
+            Name='^test-deployer$',
             Tasks=[dict(
-                Name='^gitlab$',
+                Name='^test-deployer$',
                 Driver='^docker$',
                 Config=dict(
                     network_mode='^custom-bridge$',
                     image='^gitlab/gitlab-ee',
-                    network_aliases=['^gitlab$'],
+                    network_aliases=['^test-deployer$'],
                     port_map=[dict(ssh=22)],
-                    volumes=['.+(gitlab|letsencrypt).+'],
+                    volumes=['.+(test-deployer|letsencrypt).+'],
                 ),
                 Vault=dict(
                     Policies=['^NULL$']
@@ -47,6 +47,30 @@ def nomad_validator():
 @pytest.fixture
 def ci_job_jwt():
     return """eyJhbGciOiJSUzI1NiIsImtpZCI6IkEzU2xjR3RIcjUwOHQ1WEEzQU5fV0wycjlZNHRkWG1wNHpBM3djUG44cE0iLCJ0eXAiOiJKV1QifQ.eyJuYW1lc3BhY2VfaWQiOiIyIiwibmFtZXNwYWNlX3BhdGgiOiJUb2xpYWsiLCJwcm9qZWN0X2lkIjoiNzYiLCJwcm9qZWN0X3BhdGgiOiJUb2xpYWsvZXNjYXBlX3RoZV9kb2NrZXIiLCJ1c2VyX2lkIjoiMiIsInVzZXJfbG9naW4iOiJUb2xpYWsiLCJ1c2VyX2VtYWlsIjoidG9saWFrcHVycGxlQGdtYWlsLmNvbSIsInBpcGVsaW5lX2lkIjoiMTgyOCIsImpvYl9pZCI6IjI3NTgiLCJyZWYiOiJzb21lLWJyYW5jaCIsInJlZl90eXBlIjoiYnJhbmNoIiwicmVmX3Byb3RlY3RlZCI6ImZhbHNlIiwianRpIjoiM2I5MDA0OTMtOTVhMy00Y2VkLTlhNzItMGMwMWJjMTVhYmVjIiwiaXNzIjoiZ2l0bGFiLnRvbGlhay5ydSIsImlhdCI6MTU5NjM3MjI4MSwibmJmIjoxNTk2MzcyMjc2LCJleHAiOjE1OTYzNzU4ODEsInN1YiI6ImpvYl8yNzU4In0.OHcQ9aDkIdINbX8m_LambvRqd5JEe0lzqZIHPf3bPQnd1fqS9Ety_iO1zPHVleQqHZZDj4chCYV48vO2sNty0GrRQE6bNDOztPMFevwoH255LLQYghSHJiYHXshUyGN3-jc2KoQBoWC7OPRs9Q4UEXiuM0d4Vz2CXLk92nW3VtFJHptcucS6BZGN6sDh8r2LBNh-psEKwfOBGlY6zaxgNEap8HmVrECu48YIeuo1D58S4hlzaCUMff91XEVJ2Nxf3dKBQQktDeIOJVTGEHvG4uWmqGAcLTq2oHQQWi_M2d1eLzb6QT0kSdV0cjP5e-WvPGAXkq4vncza8EuB3jiYk3CIQITGCydD1e-S5OH002oMj20jm59SY_nb6tNZ8pGn5ELZHFob7vHAEfmu4CRRWQWsqvDTJwpPGI6tMQMMztAgM2a7CLgWha5LQaYFnIG2kMD5pZAE1oG-2yC2cO2_3S3CaRdRWRJ7jBjcsWKpOY488yzSfkrhZvloWIOdk5gGYr7atQMWu-iYIf7EDnwBRKIw_I6XX2j1xQJEkRkzYAbhYtS71ZPxABUuC1oqM7PLau_alpP2uoXBm_e_txqKSFvqI5ABHe429GJnOjqgsAlnXP1KwA_-7q3MDW7isoXnFDZYqMLlpWsPN_gsVlFqhOJT9nEE-DYdEYjhMhcuJos"""
+
+
+@pytest.fixture
+def ci_job_jwt_body():
+    return """{
+  "namespace_id": "2",
+  "namespace_path": "Toliak",
+  "project_id": "76",
+  "project_path": "Toliak/escape_the_docker",
+  "user_id": "2",
+  "user_login": "Toliak",
+  "user_email": "xxxxxxxxxx@gmail.com",
+  "pipeline_id": "1828",
+  "job_id": "2758",
+  "ref": "some-branch",
+  "ref_type": "branch",
+  "ref_protected": "false",
+  "jti": "3b900493-95a3-4ced-9a72-0c01bc15abec",
+  "iss": "gitlab.toliak.ru",
+  "iat": 1596372281,
+  "nbf": 1596372276,
+  "exp": 1596375881,
+  "sub": "job_2758"
+}"""
 
 
 @pytest.fixture
@@ -66,180 +90,146 @@ def jwks_response():
 
 
 @pytest.fixture
+def nomad_hcl_job():
+    return """job "test-deployer" {
+  datacenters = ["dc1"]
+  
+  priority = 8
+
+  group "test-deployer" {
+    count = 1
+
+    task "test-deployer" {
+      driver = "docker"
+
+      config {
+        image = "gitlab/gitlab-ee:not-existing-image"
+
+        network_mode = "custom-bridge"
+        network_aliases = [
+          "test-deployer",
+        ]
+      }
+
+      resources {
+        cpu = 100
+        memory = 200
+      }
+    }
+  
+  restart {
+    attempts = 0
+    mode = "fail"
+  }
+  
+  }
+}
+"""
+
+
+@pytest.fixture
 def nomad_config_json():
     config = '''{
-  "Stop": false,
-  "Region": "global",
-  "Namespace": "default",
-  "ID": "gitlab",
-  "ParentID": "",
-  "Name": "gitlab",
-  "Type": "service",
-  "Priority": 85,
-  "AllAtOnce": false,
-  "Datacenters": [
-    "dc1"
-  ],
-  "Constraints": null,
-  "Affinities": null,
-  "Spreads": null,
-  "TaskGroups": [
-    {
-      "Name": "gitlab",
-      "Count": 1,
-      "Update": {
-        "Stagger": 30000000000,
-        "MaxParallel": 1,
-        "HealthCheck": "checks",
-        "MinHealthyTime": 10000000000,
-        "HealthyDeadline": 300000000000,
-        "ProgressDeadline": 600000000000,
-        "AutoRevert": false,
-        "AutoPromote": false,
-        "Canary": 0
-      },
-      "Migrate": {
-        "MaxParallel": 1,
-        "HealthCheck": "checks",
-        "MinHealthyTime": 10000000000,
-        "HealthyDeadline": 300000000000
-      },
-      "Constraints": null,
-      "Scaling": null,
-      "RestartPolicy": {
-        "Attempts": 2,
-        "Interval": 1800000000000,
-        "Delay": 15000000000,
-        "Mode": "fail"
-      },
-      "Tasks": [
+    "Affinities": null,
+    "AllAtOnce": null,
+    "Constraints": null,
+    "ConsulToken": null,
+    "CreateIndex": null,
+    "Datacenters": [
+        "dc1"
+    ],
+    "Dispatched": false,
+    "ID": "test-deployer",
+    "JobModifyIndex": null,
+    "Meta": null,
+    "Migrate": null,
+    "ModifyIndex": null,
+    "Multiregion": null,
+    "Name": "test-deployer",
+    "Namespace": null,
+    "NomadTokenID": null,
+    "ParameterizedJob": null,
+    "ParentID": null,
+    "Payload": null,
+    "Periodic": null,
+    "Priority": 8,
+    "Region": null,
+    "Reschedule": null,
+    "Spreads": null,
+    "Stable": null,
+    "Status": null,
+    "StatusDescription": null,
+    "Stop": null,
+    "SubmitTime": null,
+    "TaskGroups": [
         {
-          "Name": "gitlab",
-          "Driver": "docker",
-          "User": "",
-          "Config": {
-            "network_mode": "custom-bridge",
-            "port_map": [
-              {
-                "ssh": 22
-              }
+            "Affinities": null,
+            "Constraints": null,
+            "Count": 1,
+            "EphemeralDisk": null,
+            "Meta": null,
+            "Migrate": null,
+            "Name": "test-deployer",
+            "Networks": null,
+            "ReschedulePolicy": null,
+            "RestartPolicy": {
+                "Attempts": 0,
+                "Delay": null,
+                "Interval": null,
+                "Mode": "fail"
+            },
+            "Scaling": null,
+            "Services": null,
+            "ShutdownDelay": null,
+            "Spreads": null,
+            "StopAfterClientDisconnect": null,
+            "Tasks": [
+                {
+                    "Affinities": null,
+                    "Artifacts": null,
+                    "Config": {
+                        "network_aliases": [
+                            "test-deployer"
+                        ],
+                        "image": "gitlab/gitlab-ee:not-existing-image",
+                        "network_mode": "custom-bridge"
+                    },
+                    "Constraints": null,
+                    "DispatchPayload": null,
+                    "Driver": "docker",
+                    "Env": null,
+                    "KillSignal": "",
+                    "KillTimeout": null,
+                    "Kind": "",
+                    "Leader": false,
+                    "Lifecycle": null,
+                    "LogConfig": null,
+                    "Meta": null,
+                    "Name": "test-deployer",
+                    "Resources": {
+                        "CPU": 100,
+                        "Devices": null,
+                        "DiskMB": null,
+                        "IOPS": null,
+                        "MemoryMB": 200,
+                        "Networks": null
+                    },
+                    "RestartPolicy": null,
+                    "Services": null,
+                    "ShutdownDelay": 0,
+                    "Templates": null,
+                    "User": "",
+                    "Vault": null,
+                    "VolumeMounts": null
+                }
             ],
-            "volumes": [
-              "/opt/gitlab/config:/etc/gitlab",
-              "/var/log/gitlab:/var/log/gitlab",
-              "/opt/gitlab/data:/var/opt/gitlab",
-              "/opt/letsencrypt/data:/usr/share/letsencrypt:ro"
-            ],
-            "image": "gitlab/gitlab-ee:13.2.2-ee.0",
-            "network_aliases": [
-              "gitlab"
-            ]
-          },
-          "Env": null,
-          "Services": null,
-          "Vault": null,
-          "Templates": null,
-          "Constraints": null,
-          "Affinities": null,
-          "Resources": {
-            "CPU": 5000,
-            "MemoryMB": 7144,
-            "DiskMB": 0,
-            "IOPS": 0,
-            "Networks": [
-              {
-                "Mode": "",
-                "Device": "",
-                "CIDR": "",
-                "IP": "",
-                "MBits": 50,
-                "DNS": null,
-                "ReservedPorts": [
-                  {
-                    "Label": "ssh",
-                    "Value": 9022,
-                    "To": 0,
-                    "HostNetwork": "default"
-                  }
-                ],
-                "DynamicPorts": null
-              }
-            ],
-            "Devices": null
-          },
-          "RestartPolicy": {
-            "Attempts": 2,
-            "Interval": 1800000000000,
-            "Delay": 15000000000,
-            "Mode": "fail"
-          },
-          "DispatchPayload": null,
-          "Lifecycle": null,
-          "Meta": null,
-          "KillTimeout": 5000000000,
-          "LogConfig": {
-            "MaxFiles": 5,
-            "MaxFileSizeMB": 40
-          },
-          "Artifacts": null,
-          "Leader": false,
-          "ShutdownDelay": 0,
-          "VolumeMounts": null,
-          "KillSignal": "",
-          "Kind": "",
-          "CSIPluginConfig": null
+            "Update": null,
+            "Volumes": null
         }
-      ],
-      "EphemeralDisk": {
-        "Sticky": true,
-        "SizeMB": 500,
-        "Migrate": true
-      },
-      "Meta": null,
-      "ReschedulePolicy": {
-        "Attempts": 0,
-        "Interval": 0,
-        "Delay": 30000000000,
-        "DelayFunction": "exponential",
-        "MaxDelay": 3600000000000,
-        "Unlimited": true
-      },
-      "Affinities": null,
-      "Spreads": null,
-      "Networks": null,
-      "Services": null,
-      "Volumes": null,
-      "ShutdownDelay": null,
-      "StopAfterClientDisconnect": null
-    }
-  ],
-  "Update": {
-    "Stagger": 30000000000,
-    "MaxParallel": 1,
-    "HealthCheck": "",
-    "MinHealthyTime": 0,
-    "HealthyDeadline": 0,
-    "ProgressDeadline": 0,
-    "AutoRevert": false,
-    "AutoPromote": false,
-    "Canary": 0
-  },
-  "Multiregion": null,
-  "Periodic": null,
-  "ParameterizedJob": null,
-  "Dispatched": false,
-  "Payload": null,
-  "Meta": null,
-  "ConsulToken": "",
-  "VaultToken": "",
-  "Status": "running",
-  "StatusDescription": "",
-  "Stable": true,
-  "Version": 60,
-  "SubmitTime": 1596274877112575700,
-  "CreateIndex": 3523,
-  "ModifyIndex": 60702,
-  "JobModifyIndex": 60691
-}    
-'''
+    ],
+    "Type": null,
+    "Update": null,
+    "VaultToken": null,
+    "Version": null
+}'''
     return json.loads(config)

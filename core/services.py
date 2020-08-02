@@ -1,7 +1,15 @@
+import json
 import re
 
+import aiohttp
+import jwt
+import jwt.algorithms
+import nomad
+from jwt import PyJWTError
+
 from core.exceptions import HTTPApiNomadClaimsValidationError, HTTPApiNomadClaimsCheckError, \
-    HTTPApiBoundClaimsValidationError
+    HTTPApiBoundClaimsValidationError, HTTPApiNomadServiceTransformException, HTTPApiNomadServiceRunException, \
+    HTTPApiConfigServiceJWTError, HTTPApiBoundClaimsCheckError
 
 
 class BoundClaimsService:
@@ -10,6 +18,26 @@ class BoundClaimsService:
         if type(data) != dict:
             raise HTTPApiBoundClaimsValidationError('ROOT')
 
+        return True
+
+    @staticmethod
+    def _check_jwt_internal(config, validator, origin_key):
+        if type(validator) == dict:
+            for key in validator:
+                value = config.get(key, None)
+                if value is None:
+                    raise HTTPApiBoundClaimsCheckError(f'{origin_key}.{key}')
+
+                validator_value = validator[key]
+                if type(validator_value) == str or type(validator_value) == int:
+                    if validator_value != value:
+                        raise HTTPApiBoundClaimsCheckError(f'{origin_key}.{key}')
+                else:
+                    raise HTTPApiBoundClaimsCheckError(f'{origin_key}.{key}')
+
+    @staticmethod
+    def check_jwt(config, validator):
+        BoundClaimsService._check_jwt_internal(config, validator, 'ROOT')
         return True
 
 
@@ -125,7 +153,62 @@ class NomadClaimsService:
         NomadClaimsService._check_nomad_config_internal(config, validator, 'ROOT')
         return True
 
-class JwtConfigService:
+
+class ConfigService:
     @staticmethod
-    def validate(data, url):
-        pass
+    def get_issuer(encoded):
+        data = jwt.decode(encoded, verify=False)
+        return data.get('iss')
+
+    @staticmethod
+    async def get_jwks(url) -> dict:
+        async with aiohttp.ClientSession() as client:
+            async with client.get(url) as resp:
+                assert resp.status == 200
+                response = await resp.text()
+                keys = json.loads(response)
+
+                return keys
+
+    # https://renzolucioni.com/verifying-jwts-with-jwks-and-pyjwt/
+    @staticmethod
+    def validate(encoded, jwks):
+        public_keys = dict()
+        for jwk in jwks['keys']:
+            kid = jwk['kid']
+            public_keys[kid] = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+
+        kid = jwt.get_unverified_header(encoded)['kid']
+        key = public_keys[kid]
+
+        try:
+            payload = jwt.decode(encoded, key=key, algorithms=['RS256'])
+        except PyJWTError as e:
+            raise HTTPApiConfigServiceJWTError(f'JWT Decode error: {str(e)}')
+
+        return payload
+
+
+class NomadService:
+    nomad_host = nomad.Nomad()
+
+    @staticmethod
+    def transform(hcl_job) -> dict:
+        try:
+            return NomadService.nomad_host.jobs.parse(hcl_job)
+        except nomad.api.exceptions.BaseNomadException as e:
+            raise HTTPApiNomadServiceTransformException(
+                e.nomad_resp.text if hasattr(e.nomad_resp, "text") else str(e.nomad_resp))
+
+    @staticmethod
+    def validate_and_run(job_data: dict):
+        data = dict(Job=job_data)
+
+        try:
+            name = job_data['Name']
+            return NomadService.nomad_host.job.register_job(name, data)
+        except nomad.api.exceptions.BaseNomadException as e:
+            raise HTTPApiNomadServiceRunException(
+                e.nomad_resp.text if hasattr(e.nomad_resp, "text") else str(e.nomad_resp))
+        except KeyError:
+            raise HTTPApiNomadServiceRunException('Name key not found')
