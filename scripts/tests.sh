@@ -4,4 +4,5 @@ export PYTHONPATH=$PWD
 
 alembic upgrade head
 
-exec coverage run --source=. --omit=venv/*/** -m pytest
+coverage run --source=. --omit=venv/*/** -m pytest
+coverage report -m --omit=venv/**,**/migrations/**,**/test_*,**/apps.py,**/asgi.py,**/wsgi.py,manage.py
