@@ -6,7 +6,7 @@ WORKDIR /app/
 
 VOLUME /opt/data/
 
-COPY /app/ .
+COPY . /app/
 
 RUN pip install -r requirements.txt
 
