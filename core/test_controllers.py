@@ -1,11 +1,12 @@
 import json
 
+import cryptography.hazmat.backends
 import pytest
 from aiohttp.test_utils import TestClient
+from jwt import PyJWT
 from sqlalchemy import insert
 
 from core.app import create_app
-# TODO: token to auth headers
 from core.tables import JwtRole, JwtConfig
 
 
@@ -14,7 +15,7 @@ async def jwt_role(db, nomad_validator):
     async with db.connect() as conn:
         return await conn.execute(
             insert(JwtRole).values(dict(role='role-test',
-                                        bound_claims='{"project_id":"1"}',
+                                        bound_claims='{"project_id":"76"}',
                                         nomad_claims=json.dumps(nomad_validator)))
         )
 
@@ -518,3 +519,91 @@ async def test_config_view_list_wrong_token(aiohttp_client,
     assert '"detail"' in text
     assert 'invalid' in text
     assert 'token' in text
+
+
+@pytest.fixture
+def run_view_post_mock_everything(mocker,
+                                  nomad_hcl_job,
+                                  ci_job_jwt,
+                                  jwks_response,
+                                  ci_job_jwt_body,
+                                  nomad_config_json):
+    async def mock_get_jwks(jwks_url):
+        assert jwks_url == 'https://gitlab.toliak.ru/-/jwks'
+        mock_get_jwks.called = True
+        return json.loads(jwks_response)
+
+    mock_get_jwks.called = False
+
+    def mock_jwt_decode(encoded, key=None, algorithms=None, verify=True):
+        if verify is True:
+            assert type(algorithms) == list
+            assert isinstance(key, cryptography.hazmat.backends.openssl.rsa._RSAPublicKey)
+            assert encoded == ci_job_jwt
+            mock_jwt_decode.called = True
+
+            return json.loads(ci_job_jwt_body)
+
+        return PyJWT().decode(encoded, verify=False)
+
+    mock_jwt_decode.called = False
+
+    def mock_nomad_transform(hcl):
+        assert hcl == nomad_hcl_job
+        mock_nomad_transform.called = True
+
+        return nomad_config_json
+
+    mock_nomad_transform.called = False
+
+    def mock_nomad_register_job(this, uid, job):
+        assert uid == 'test-deployer'
+        assert type(job) == dict
+        mock_nomad_register_job.called = True
+
+        return dict(ok=True)
+
+    mock_nomad_register_job.called = False
+
+    mocker.patch('core.services.ConfigService.get_jwks', new=mock_get_jwks)
+    mocker.patch('jwt.decode', new=mock_jwt_decode)
+    mocker.patch('core.services.NomadService.transform', new=mock_nomad_transform)
+    mocker.patch('nomad.api.job.Job.register_job', new=mock_nomad_register_job)
+
+    return [mock_get_jwks,
+            mock_jwt_decode,
+            mock_nomad_transform,
+            mock_nomad_register_job, ]
+
+
+async def test_run_view_post_correct(aiohttp_client,
+                                     prepare_db,
+                                     headers,
+                                     jwt_role,
+                                     jwt_config,
+                                     nomad_hcl_job,
+                                     ci_job_jwt,
+                                     run_view_post_mock_everything):
+    """
+    Expected: job_hcl, role, jwt
+    Should return 200
+    """
+    [mock_get_jwks,
+     mock_jwt_decode,
+     mock_nomad_transform,
+     mock_nomad_register_job, ] = run_view_post_mock_everything
+
+    client: TestClient = await aiohttp_client(create_app)
+    response = await client.post('/run/',
+                                 headers=headers,
+                                 json=dict(job_hcl=nomad_hcl_job,
+                                           role='role-test',
+                                           jwt=ci_job_jwt))
+    assert response.status == 200
+    text = await response.text()
+    assert '"success": true' in text
+
+    assert mock_get_jwks.called is True
+    assert mock_jwt_decode.called is True
+    assert mock_nomad_transform.called is True
+    assert mock_nomad_register_job.called is True

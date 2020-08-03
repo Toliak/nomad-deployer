@@ -10,6 +10,8 @@ async def reformat_error_to_json(request, handler):
         return web.json_response(dict(detail=e.reason,
                                       status=e.status_code),
                                  status=e.status_code)
+    except Exception as e:
+        raise e
 
 
 async def init_middlewares(app):

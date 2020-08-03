@@ -11,8 +11,9 @@ from sqlalchemy_aio.base import AsyncResultProxy
 from core import settings
 from core.exceptions import HTTPApiAdminTokenInvalid, HTTPApiRoleAlreadyExists, HTTPApiRoleDataInvalid, \
     HTTPApiRoleNotExist, HTTPApiBoundClaimsValidationError, HTTPApiNomadClaimsValidationError, HTTPApiConfigDataInvalid, \
-    HTTPApiConfigAlreadyExists, HTTPApiConfigNotExist, HTTPApiContentTypeInvalid, HTTPApiEmptyBody
-from core.services import BoundClaimsService, NomadClaimsService
+    HTTPApiConfigAlreadyExists, HTTPApiConfigNotExist, HTTPApiContentTypeInvalid, HTTPApiEmptyBody, \
+    HTTPApiRunDataInvalid
+from core.services import BoundClaimsService, NomadClaimsService, ConfigService, NomadService
 from core.tables import JwtRole, JwtConfig
 
 
@@ -215,3 +216,57 @@ class ConfigView(AdminView):
 
             return web.json_response(dict(success=True))
 
+
+class RunView(JsonView):
+    async def post(self):
+        if self.request.can_read_body is False:
+            raise HTTPApiEmptyBody()
+        data = await self.request.json()
+
+        job_hcl = data.get('job_hcl', None)
+        if job_hcl is None:
+            raise HTTPApiRunDataInvalid('job_hcl')
+        role = data.get('role', None)
+        if role is None:
+            raise HTTPApiRunDataInvalid('role')
+        jwt_data = data.get('jwt', None)
+        if role is None:
+            raise HTTPApiRunDataInvalid('jwt')
+
+        # Validate and obtain data from jwt
+        issuer = ConfigService.get_issuer(jwt_data)
+        query = select([JwtConfig]).where(JwtConfig.bound_issuer == issuer)
+        async with self.request.app['db'].connect() as conn:
+            row: AsyncResultProxy = await conn.execute(query)
+
+            result: RowProxy = await row.fetchone()
+            if result is None:
+                raise HTTPApiConfigNotExist(issuer)
+
+            jwks_url = result.jwks_url
+        jwks = await ConfigService.get_jwks(jwks_url)
+
+        data = ConfigService.validate(jwt_data, jwks)  # throws exception if validation fails
+
+        # Validate bound_claims on jwt
+        query = select([JwtRole]).where(JwtRole.role == role)
+        async with self.request.app['db'].connect() as conn:
+            row: AsyncResultProxy = await conn.execute(query)
+
+            result: RowProxy = await row.fetchone()
+            if result is None:
+                raise HTTPApiRoleNotExist(role)
+
+            bound_claims = json.loads(result.bound_claims)
+            nomad_claims = json.loads(result.nomad_claims)
+
+        BoundClaimsService.check_jwt(data, bound_claims)
+
+        # Prepare HCL and validate nomad_claims
+        json_job = NomadService.transform(job_hcl)
+        NomadClaimsService.check_nomad_config(json_job, nomad_claims)
+
+        # Finally, run
+        response = NomadService.run(json_job)
+        return web.json_response(dict(success=True,
+                                      nomad=response))

@@ -201,7 +201,7 @@ class NomadService:
                 e.nomad_resp.text if hasattr(e.nomad_resp, "text") else str(e.nomad_resp))
 
     @staticmethod
-    def validate_and_run(job_data: dict):
+    def run(job_data: dict):
         data = dict(Job=job_data)
 
         try:

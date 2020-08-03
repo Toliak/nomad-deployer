@@ -190,7 +190,7 @@ def test_nomad_service_run_correct(mocker,
     mock_function.called = False
 
     mocker.patch('core.services.NomadService.nomad_host.job.register_job', new=mock_function)
-    response = NomadService.validate_and_run(nomad_config_json)
+    response = NomadService.run(nomad_config_json)
 
     assert mock_function.called is True
     assert type(response) == dict
@@ -207,7 +207,7 @@ def test_nomad_service_run_fail(mocker,
 
     mocker.patch('core.services.NomadService.nomad_host.job.register_job', new=mock_function)
     try:
-        NomadService.validate_and_run(dict(Name="""hey hello it's not hcl it's plain text ok"""))
+        NomadService.run(dict(Name="""hey hello it's not hcl it's plain text ok"""))
         assert False
     except HTTPBadRequest:
         assert True

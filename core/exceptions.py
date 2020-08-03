@@ -54,18 +54,23 @@ class HTTPApiRoleDataInvalid(HTTPBadRequest):
 
 
 class HTTPApiConfigAlreadyExists(HTTPBadRequest):
-    def __init__(self, rolename):
-        super().__init__(reason=f'Config "{rolename}" already exists')
+    def __init__(self, issuer):
+        super().__init__(reason=f'Config "{issuer}" already exists')
 
 
 class HTTPApiConfigNotExist(HTTPBadRequest):
-    def __init__(self, rolename):
-        super().__init__(reason=f'Config "{rolename}" does not exist')
+    def __init__(self, issuer):
+        super().__init__(reason=f'Config "{issuer}" does not exist')
 
 
 class HTTPApiConfigDataInvalid(HTTPBadRequest):
     def __init__(self, key):
         super().__init__(reason=f'Config data key "{key}" is invalid')
+
+
+class HTTPApiRunDataInvalid(HTTPBadRequest):
+    def __init__(self, key):
+        super().__init__(reason=f'Run data key "{key}" is invalid')
 
 
 class HTTPApiContentTypeInvalid(HTTPUnsupportedMediaType):
