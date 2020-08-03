@@ -1,3 +1,5 @@
+import logging
+
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPException
 
@@ -11,7 +13,10 @@ async def reformat_error_to_json(request, handler):
                                       status=e.status_code),
                                  status=e.status_code)
     except Exception as e:
-        raise e
+        logging.exception("Internal error")
+        return web.json_response(dict(detail='Internal Server Error',
+                                      status=500),
+                                 status=500)
 
 
 async def init_middlewares(app):

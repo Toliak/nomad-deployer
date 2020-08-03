@@ -2,7 +2,6 @@ stages:
   - test
 
 variables:
-  NOMAD_ADDR: "http://skeak.toliak.ru:4646/"
   DOCKER_IMAGE: "nomad-deployer"
 
 .env_docker: &env_docker
@@ -13,16 +12,6 @@ variables:
 
   services:
     - docker:19.03.12-dind
-
-.nomad: &nomad
-  before_script:
-    - apt-get update -y
-    - apt-get install -y unzip wget
-    - wget https://releases.hashicorp.com/nomad/0.11.3/nomad_0.11.3_linux_amd64.zip -O nomad.zip
-    - unzip nomad.zip
-    - mv nomad /bin/nomad
-    - chmod +x /bin/nomad
-    - rm nomad.zip
 
 test:
   image: python:3.7.8-slim-stretch
@@ -39,4 +28,16 @@ test:
   stage: test
 
   script:
-    - ./tests.sh
+    - ./scripts/tests.sh
+
+build_docker:
+  <<: *env_docker
+
+  stage: build
+  only:
+    - master
+
+  script:
+    - docker login --username ${DEPLOY_DOCKERHUB_USERNAME} --password ${DEPLOY_DOCKERHUB_PASSWORD}
+    - docker build . -t ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
