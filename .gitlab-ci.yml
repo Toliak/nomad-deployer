@@ -1,5 +1,6 @@
 stages:
   - test
+  - build
 
 variables:
   DOCKER_IMAGE: "nomad-deployer"
