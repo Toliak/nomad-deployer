@@ -2,7 +2,11 @@ FROM python:3.7.6-slim-buster
 
 EXPOSE 4656
 
-COPY . .
+WORKDIR /app/
+
+VOLUME /opt/data/
+
+COPY /app/ .
 
 RUN pip install -r requirements.txt
 
