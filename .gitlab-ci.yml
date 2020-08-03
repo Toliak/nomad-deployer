@@ -1,0 +1,44 @@
+stages:
+  - test
+  - build
+
+variables:
+  DOCKER_IMAGE: "nomad-deployer"
+
+.env_docker: &env_docker
+  image: docker:19.03.12
+
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+
+  services:
+    - docker:19.03.12-dind
+
+test:
+  image: python:3.7.8-slim-stretch
+
+  variables:
+    SQLALCHEMY_URI: "sqlite:///db_test:sqlite"
+    ADMIN_TOKEN: "admin_token_test"
+
+  before_script:
+    - apt-get update -y
+    - apt-get install -y gcc
+    - pip install -r requirements.txt
+
+  stage: test
+
+  script:
+    - ./scripts/tests.sh
+
+build_docker:
+  <<: *env_docker
+
+  stage: build
+  only:
+    - master
+
+  script:
+    - docker login --username ${DEPLOY_DOCKERHUB_USERNAME} --password ${DEPLOY_DOCKERHUB_PASSWORD}
+    - docker build . -t ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}

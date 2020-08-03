@@ -1,33 +1,103 @@
-import json
-
-from aiohttp import web
+from aiohttp.web_exceptions import HTTPUnauthorized, HTTPBadRequest, HTTPUnsupportedMediaType, HTTPServiceUnavailable
 
 
-class ApiException(RuntimeError):
-    def __init__(self, message, code, info=None):
-        super().__init__(message)
-
-        self.message = message
-        self.code = code
-        self.info = info
-
-    def to_json(self):
-        return json.dumps(dict(
-            message=self.message,
-            detail=self.info,
-        ))
-
-    def to_response(self):
-        return web.Response(text=self.to_json(),
-                            status=self.code)
+class HTTPApiAdminTokenInvalid(HTTPUnauthorized):
+    def __init__(self):
+        super().__init__(reason='Admin token is invalid')
 
 
-def response_internal_error(exception):
-    return web.Response(text=json.dumps(dict(message=str(exception),
-                                             )),
-                        status=500)
+class HTTPApiNomadClaimsValidationError(HTTPBadRequest):
+    def __init__(self, key=None):
+        if key:
+            super().__init__(reason=f'nomad_claims validation error at key: {key}')
+        else:
+            super().__init__(reason=f'nomad_claims validation: undefined')
 
 
-class MethodNotAllowedApiException(ApiException):
-    def __init__(self, method):
-        super().__init__(f"Method {method} not allowed", 405)
+class HTTPApiBoundClaimsValidationError(HTTPBadRequest):
+    def __init__(self, key=None):
+        if key:
+            super().__init__(reason=f'bound_claims validation error at key: {key}')
+        else:
+            super().__init__(reason=f'bound_claims validation: undefined')
+
+
+class HTTPApiNomadClaimsCheckError(HTTPBadRequest):
+    def __init__(self, key=None):
+        if key:
+            super().__init__(reason=f'Nomad check error at key: {key}')
+        else:
+            super().__init__(reason=f'Nomad check error at key: undefined')
+
+
+class HTTPApiBoundClaimsCheckError(HTTPBadRequest):
+    def __init__(self, key=None):
+        if key:
+            super().__init__(reason=f'Bound claims check error at key: {key}')
+        else:
+            super().__init__(reason=f'Bound claims check error at key: undefined')
+
+
+class HTTPApiRoleAlreadyExists(HTTPBadRequest):
+    def __init__(self, rolename):
+        super().__init__(reason=f'Role "{rolename}" already exists')
+
+
+class HTTPApiRoleNotExist(HTTPBadRequest):
+    def __init__(self, rolename):
+        super().__init__(reason=f'Role "{rolename}" does not exist')
+
+
+class HTTPApiRoleDataInvalid(HTTPBadRequest):
+    def __init__(self, key):
+        super().__init__(reason=f'Role data key "{key}" is invalid')
+
+
+class HTTPApiConfigAlreadyExists(HTTPBadRequest):
+    def __init__(self, issuer):
+        super().__init__(reason=f'Config "{issuer}" already exists')
+
+
+class HTTPApiConfigNotExist(HTTPBadRequest):
+    def __init__(self, issuer):
+        super().__init__(reason=f'Config "{issuer}" does not exist')
+
+
+class HTTPApiConfigDataInvalid(HTTPBadRequest):
+    def __init__(self, key):
+        super().__init__(reason=f'Config data key "{key}" is invalid')
+
+
+class HTTPApiRunDataInvalid(HTTPBadRequest):
+    def __init__(self, key):
+        super().__init__(reason=f'Run data key "{key}" is invalid')
+
+
+class HTTPApiContentTypeInvalid(HTTPUnsupportedMediaType):
+    def __init__(self):
+        super().__init__(reason=f'Supports only "application/json" Content-Type')
+
+
+class HTTPApiEmptyBody(HTTPBadRequest):
+    def __init__(self):
+        super().__init__(reason=f'Request has an empty body')
+
+
+class HTTPApiNomadServiceTransformException(HTTPBadRequest):
+    def __init__(self, message):
+        super().__init__(reason=f'Transform error: {message}')
+
+
+class HTTPApiNomadServiceRunException(HTTPBadRequest):
+    def __init__(self, message):
+        super().__init__(reason=f'Run error: {message}')
+
+
+class HTTPApiConfigServiceJwksError(HTTPServiceUnavailable):
+    def __init__(self, url):
+        super().__init__(reason=f'Failed to retrieve JWKS from: {url}')
+
+
+class HTTPApiConfigServiceJWTError(HTTPBadRequest):
+    def __init__(self, url):
+        super().__init__(reason=f'{url}')
