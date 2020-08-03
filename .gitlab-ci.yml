@@ -40,5 +40,6 @@ build_docker:
 
   script:
     - docker login --username ${DEPLOY_DOCKERHUB_USERNAME} --password ${DEPLOY_DOCKERHUB_PASSWORD}
-    - docker build . -t ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
-    - docker push ${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - export IMAGE=${DEPLOY_DOCKERHUB_USERNAME}/${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - docker build . -t ${IMAGE}
+    - docker push ${IMAGE}
