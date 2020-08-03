@@ -52,8 +52,8 @@ async def test_role_view_put_correct(aiohttp_client,
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
                             json=dict(
-                                bound_claims='{"project_id":"1"}',
-                                nomad_claims='{"Name":"^test-service$"}'))
+                                bound_claims={"project_id": "1"},
+                                nomad_claims={"Name": "^test-service$"}))
     assert resp.status == 200
     text = await resp.text()
     assert '"id": 1' in text
@@ -69,8 +69,8 @@ async def test_role_view_put_exists(aiohttp_client,
     client: TestClient = await aiohttp_client(create_app)
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
-                            json=dict(bound_claims='{"project_id":"22"}',
-                                      nomad_claims='{}'))
+                            json=dict(bound_claims={"project_id": "22"},
+                                      nomad_claims={}))
     assert resp.status == 400
     text = await resp.text()
     assert '"detail"' in text
@@ -86,8 +86,8 @@ async def test_role_view_put_wrong_data_bound(aiohttp_client,
     client: TestClient = await aiohttp_client(create_app)
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
-                            json=dict(bound_claims='{"proje"""ct_id":"22"}',
-                                      nomad_claims='{}'))
+                            json=dict(bound_claims='{"project_id": "22"}',
+                                      nomad_claims={}))
     assert resp.status == 400
     text = await resp.text()
     assert '"detail"' in text
@@ -104,8 +104,8 @@ async def test_role_view_put_wrong_data_nomad(aiohttp_client,
     client: TestClient = await aiohttp_client(create_app)
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
-                            json=dict(bound_claims='{}',
-                                      nomad_claims='{"project_id":"22"}'))
+                            json=dict(bound_claims={},
+                                      nomad_claims={"project_id": "22"}))
     assert resp.status == 400
     text = await resp.text()
     assert '"detail"' in text
@@ -123,8 +123,8 @@ async def test_role_view_put_wrong_token(aiohttp_client,
     admin_headers['Authorization'] = 'Bearer wrong-token'
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
-                            json=dict(bound_claims='{}',
-                                      nomad_claims='{}'))
+                            json=dict(bound_claims={},
+                                      nomad_claims={}))
     assert resp.status == 401
     text = await resp.text()
     assert '"detail"' in text

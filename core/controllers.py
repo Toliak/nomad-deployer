@@ -80,19 +80,19 @@ class RoleView(AdminView):
                 raise HTTPApiRoleAlreadyExists(role)
 
             try:
-                BoundClaimsService.validate(json.loads(bound_claims))
+                BoundClaimsService.validate(bound_claims)
             except JSONDecodeError:
                 raise HTTPApiBoundClaimsValidationError('ROOT')
 
             try:
-                NomadClaimsService.validate(json.loads(nomad_claims))
+                NomadClaimsService.validate(nomad_claims)
             except JSONDecodeError:
                 raise HTTPApiNomadClaimsValidationError('ROOT')
 
             result: AsyncResultProxy = await conn.execute(
                 insert(JwtRole).values(dict(role=role,
-                                            bound_claims=bound_claims,
-                                            nomad_claims=nomad_claims))
+                                            bound_claims=json.dumps(bound_claims),
+                                            nomad_claims=json.dumps(nomad_claims)))
             )
             return web.json_response(dict(id=result.inserted_primary_key[0], ))
 
