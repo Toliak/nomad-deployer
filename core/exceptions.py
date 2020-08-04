@@ -83,6 +83,10 @@ class HTTPApiEmptyBody(HTTPBadRequest):
         super().__init__(reason=f'Request has an empty body')
 
 
+class HTTPApiInvalidJson(HTTPBadRequest):
+    def __init__(self):
+        super().__init__(reason=f'Request has an invalid JSON')
+
 class HTTPApiNomadServiceTransformException(HTTPBadRequest):
     def __init__(self, message):
         super().__init__(reason=f'Transform error: {message}')
@@ -91,6 +95,11 @@ class HTTPApiNomadServiceTransformException(HTTPBadRequest):
 class HTTPApiNomadServiceRunException(HTTPBadRequest):
     def __init__(self, message):
         super().__init__(reason=f'Run error: {message}')
+
+
+class HTTPApiConfigServiceInvalidJwt(HTTPBadRequest):
+    def __init__(self, message):
+        super().__init__(reason=f'JWT is invalid: {message}')
 
 
 class HTTPApiConfigServiceJwksError(HTTPServiceUnavailable):

@@ -9,7 +9,7 @@ from jwt import PyJWTError
 
 from core.exceptions import HTTPApiNomadClaimsValidationError, HTTPApiNomadClaimsCheckError, \
     HTTPApiBoundClaimsValidationError, HTTPApiNomadServiceTransformException, HTTPApiNomadServiceRunException, \
-    HTTPApiConfigServiceJWTError, HTTPApiBoundClaimsCheckError
+    HTTPApiConfigServiceJWTError, HTTPApiBoundClaimsCheckError, HTTPApiInvalidJson, HTTPApiEmptyBody
 
 
 class BoundClaimsService:
@@ -88,11 +88,11 @@ class NomadClaimsService:
                 raise HTTPApiNomadClaimsValidationError(f'{origin_key}.{key}')
 
             if length > 0:
-                raise HTTPApiNomadClaimsValidationError(f'{origin_key}')
+                raise HTTPApiNomadClaimsValidationError(f'{origin_key} (undefined keys)')
 
         if type(structure) == list:
             if type(data) != list or len(data) > 1:
-                raise HTTPApiNomadClaimsValidationError(f'{origin_key}')
+                raise HTTPApiNomadClaimsValidationError(f'{origin_key} (undefined list entries)')
 
             if len(structure) == 0:
                 return
@@ -212,3 +212,14 @@ class NomadService:
                 e.nomad_resp.text if hasattr(e.nomad_resp, "text") else str(e.nomad_resp))
         except KeyError:
             raise HTTPApiNomadServiceRunException('Name key not found')
+
+
+class ViewUtilities:
+    @staticmethod
+    async def get_request_json(request):
+        if request.can_read_body is False:
+            raise HTTPApiEmptyBody()
+        data = await request.json()
+        if type(data) != dict:
+            raise HTTPApiInvalidJson()
+        return data

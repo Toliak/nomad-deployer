@@ -4,6 +4,7 @@ from json import JSONDecodeError
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.web_urldispatcher import View
+from jwt import PyJWTError
 from sqlalchemy import select, insert, delete
 from sqlalchemy.engine import RowProxy
 from sqlalchemy_aio.base import AsyncResultProxy
@@ -12,8 +13,8 @@ from core import settings
 from core.exceptions import HTTPApiAdminTokenInvalid, HTTPApiRoleAlreadyExists, HTTPApiRoleDataInvalid, \
     HTTPApiRoleNotExist, HTTPApiBoundClaimsValidationError, HTTPApiNomadClaimsValidationError, HTTPApiConfigDataInvalid, \
     HTTPApiConfigAlreadyExists, HTTPApiConfigNotExist, HTTPApiContentTypeInvalid, HTTPApiEmptyBody, \
-    HTTPApiRunDataInvalid
-from core.services import BoundClaimsService, NomadClaimsService, ConfigService, NomadService
+    HTTPApiRunDataInvalid, HTTPApiInvalidJson, HTTPApiConfigServiceInvalidJwt
+from core.services import BoundClaimsService, NomadClaimsService, ConfigService, NomadService, ViewUtilities
 from core.tables import JwtRole, JwtConfig
 
 
@@ -57,9 +58,7 @@ class RoleListView(AdminView):
 
 class RoleView(AdminView):
     async def put(self):
-        if self.request.can_read_body is False:
-            raise HTTPApiEmptyBody()
-        data = await self.request.json()
+        data = await ViewUtilities.get_request_json(self.request)
 
         bound_claims = data.get('bound_claims', None)
         if bound_claims is None:
@@ -137,9 +136,7 @@ class RoleView(AdminView):
 
 class ConfigView(AdminView):
     async def put(self):
-        if self.request.can_read_body is False:
-            raise HTTPApiEmptyBody()
-        data = await self.request.json()
+        data = await ViewUtilities.get_request_json(self.request)
 
         jwks_url = data.get('jwks_url', None)
         if jwks_url is None:
@@ -194,9 +191,7 @@ class ConfigView(AdminView):
                                           jwks_url=result.jwks_url, ))
 
     async def delete(self):
-        if self.request.can_read_body is False:
-            raise HTTPApiEmptyBody()
-        data = await self.request.json()
+        data = await ViewUtilities.get_request_json(self.request)
 
         bound_issuer = data.get('bound_issuer', None)
         if bound_issuer is None:
@@ -219,9 +214,7 @@ class ConfigView(AdminView):
 
 class RunView(JsonView):
     async def post(self):
-        if self.request.can_read_body is False:
-            raise HTTPApiEmptyBody()
-        data = await self.request.json()
+        data = await ViewUtilities.get_request_json(self.request)
 
         job_hcl = data.get('job_hcl', None)
         if job_hcl is None:
@@ -234,7 +227,11 @@ class RunView(JsonView):
             raise HTTPApiRunDataInvalid('jwt')
 
         # Validate and obtain data from jwt
-        issuer = ConfigService.get_issuer(jwt_data)
+        try:
+            issuer = ConfigService.get_issuer(jwt_data)
+        except PyJWTError as e:
+            raise HTTPApiConfigServiceInvalidJwt(str(e))
+
         query = select([JwtConfig]).where(JwtConfig.bound_issuer == issuer)
         async with self.request.app['db'].connect() as conn:
             row: AsyncResultProxy = await conn.execute(query)
