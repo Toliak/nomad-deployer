@@ -51,7 +51,7 @@ curl --output "$CURL_RESPONSE_FILE" \
   --write-out "%{http_code}\n" \
   -H "Content-Type: application/json" \
   -d "{\"role\":\"$ROLE\",\"job_hcl\":\"$(cat "$PREPARED_HCL")\",\"jwt\":\"${JWT}\"}" \
-  "$URL"
+  "$URL/run/"
 echo Response:
 cat "$CURL_RESPONSE_FILE"
 echo
