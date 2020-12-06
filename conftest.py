@@ -23,6 +23,11 @@ async def prepare_db(db):
 def nomad_validator():
     return dict(
         Name='^test-deployer$',
+        Constraints=[dict(
+            LTarget=r'^.+client_id\}$',
+            RTarget='^main_client$',
+            Operand='=',
+        )],
         Type='^service$',
         TaskGroups=[dict(
             Name='^test-deployer$',
@@ -138,6 +143,13 @@ def nomad_config_json():
     "Datacenters": [
         "dc1"
     ],
+    "Constraints": [
+        {
+          "LTarget": "${meta.client_id}",
+          "RTarget": "main_client",
+          "Operand": "="
+        }
+      ],
     "Dispatched": false,
     "ID": "test-deployer",
     "JobModifyIndex": null,

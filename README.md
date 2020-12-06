@@ -1,9 +1,4 @@
-### Ok some meme here 
-
-![Meme](.misc/meme.jpg)
-
-## Config examples
-
+## Config examples (and API docs)
 
 #### *PUT* /config/
 
@@ -18,7 +13,11 @@
 
 Returns list of roles
 
-#### *PUT* /role/{role-name}
+#### *GET* /role/{role-name}
+
+Returns role data
+
+#### *PUT* or *POST* /role/{role-name}
 
 *Nomad claims validates via regexp*
 
@@ -66,7 +65,7 @@ Returns list of roles
 }
 ```
 
-#### *PUT* /run/
+#### *POST* /run/
 
 ```json
 {
@@ -75,3 +74,7 @@ Returns list of roles
    "jwt":"${CI_JOB_JWT}"
 }
 ```
+
+## Ok some meme here 
+
+![Meme](.misc/meme.jpg)
