@@ -1,5 +1,7 @@
 #! /bin/sh
 
+export PYTHONPATH=/app/
+
 ./scripts/migrate.sh
 
-python core/app.py
+exec python core/app.py
