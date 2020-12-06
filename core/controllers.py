@@ -4,7 +4,8 @@ from json import JSONDecodeError
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.web_urldispatcher import View
-from sqlalchemy import select, insert, delete
+from requests import Response
+from sqlalchemy import select, insert, delete, update
 from sqlalchemy.engine import RowProxy
 from sqlalchemy_aio.base import AsyncResultProxy
 
@@ -56,7 +57,11 @@ class RoleListView(AdminView):
 
 
 class RoleView(AdminView):
-    async def put(self):
+    async def add_role_with_behaviour(self, already_exists_behaviour) -> Response:
+        """
+        Adds claims by role_name
+        :param already_exists_behaviour: Behavioural function, calls if the claims already exists
+        """
         if self.request.can_read_body is False:
             raise HTTPApiEmptyBody()
         data = await self.request.json()
@@ -64,37 +69,60 @@ class RoleView(AdminView):
         bound_claims = data.get('bound_claims', None)
         if bound_claims is None:
             raise HTTPApiRoleDataInvalid('bound_claims')
+
         nomad_claims = data.get('nomad_claims', None)
         if nomad_claims is None:
             raise HTTPApiRoleDataInvalid('nomad_claims')
+
         role = self.request.match_info.get('role_name', None)
         if role is None:
             raise HTTPApiRoleDataInvalid('role_name')
 
+        try:
+            BoundClaimsService.validate(json.loads(bound_claims))
+        except JSONDecodeError:
+            raise HTTPApiBoundClaimsValidationError('ROOT')
+
+        try:
+            NomadClaimsService.validate(json.loads(nomad_claims))
+        except JSONDecodeError:
+            raise HTTPApiNomadClaimsValidationError('ROOT')
+
+        # Dive into database
         query = select([JwtRole]).where(JwtRole.role == role)
         async with self.request.app['db'].connect() as conn:
             row: AsyncResultProxy = await conn.execute(query)
 
             result: RowProxy = await row.fetchone()
             if result is not None:
-                raise HTTPApiRoleAlreadyExists(role)
+                await already_exists_behaviour(role,
+                                               result=result,
+                                               bound_claims=bound_claims,
+                                               nomad_claims=nomad_claims,
+                                               conn=conn)
+                return web.json_response(dict(id=result['id'], ))
 
-            try:
-                BoundClaimsService.validate(json.loads(bound_claims))
-            except JSONDecodeError:
-                raise HTTPApiBoundClaimsValidationError('ROOT')
-
-            try:
-                NomadClaimsService.validate(json.loads(nomad_claims))
-            except JSONDecodeError:
-                raise HTTPApiNomadClaimsValidationError('ROOT')
-
-            result: AsyncResultProxy = await conn.execute(
-                insert(JwtRole).values(dict(role=role,
-                                            bound_claims=bound_claims,
-                                            nomad_claims=nomad_claims))
-            )
+            else:
+                result: AsyncResultProxy = await conn.execute(
+                    insert(JwtRole).values(dict(role=role,
+                                                bound_claims=bound_claims,
+                                                nomad_claims=nomad_claims))
+                )
             return web.json_response(dict(id=result.inserted_primary_key[0], ))
+
+    async def put(self):
+        async def edit_if_exists(role: str, result: RowProxy, bound_claims, nomad_claims, conn, *args):
+            query = update(JwtRole).where(JwtRole.id == result['id']).values(bound_claims=bound_claims,
+                                                                             nomad_claims=nomad_claims)
+            await conn.execute(query)
+
+        return await self.add_role_with_behaviour(edit_if_exists)
+
+    async def post(self):
+        async def raise_is_exists(role: str, *args, **kwargs):
+            raise HTTPApiRoleAlreadyExists(role)
+
+        return await self.add_role_with_behaviour(raise_is_exists)
 
     async def get(self):
         role = self.request.match_info.get('role_name', None)

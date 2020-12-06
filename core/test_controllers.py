@@ -64,17 +64,23 @@ async def test_role_view_put_exists(aiohttp_client,
                                     admin_headers,
                                     jwt_role):
     """
-    Should raise 400
+    Should return 200 and change the data
     """
     client: TestClient = await aiohttp_client(create_app)
     resp = await client.put('/role/role-test',
                             headers=admin_headers,
                             json=dict(bound_claims='{"project_id":"22"}',
                                       nomad_claims='{}'))
-    assert resp.status == 400
+    assert resp.status == 200
     text = await resp.text()
-    assert '"detail"' in text
-    assert 'exist' in text
+    assert '"id"' in text
+
+    resp = await client.get('/role/role-test',
+                            headers=admin_headers)
+    assert resp.status == 200
+    text = await resp.text()
+    assert '"22"' in text
+    assert '"76"' not in text
 
 
 async def test_role_view_put_wrong_data_bound(aiohttp_client,
