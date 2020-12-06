@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from aiohttp.web_exceptions import HTTPBadRequest
 from nomad.api.exceptions import BadRequestNomadException
 
@@ -279,3 +280,27 @@ async def test_bound_claims_service_check_jwt_fail_new_key(ci_job_jwt_body):
     except HTTPApiBoundClaimsCheckError as e:
         assert True
         assert 'ROOT.expected_key' in str(e)
+
+
+def test_nomad_claims_service_check_nomad_config_constraint_fail(nomad_config_json,
+                                                                 nomad_validator):
+    nomad_config_json['Constraints'][0]['RTarget'] = 'e_prod'
+
+    with pytest.raises(HTTPApiNomadClaimsCheckError) as e:
+        NomadClaimsService.check_nomad_config(nomad_config_json, nomad_validator)
+
+    assert 'ROOT.Constraints.0.RTarget' in str(e)
+
+
+def test_nomad_claims_service_check_nomad_config_constraint_double(nomad_config_json,
+                                                                   nomad_validator):
+    nomad_config_json['Constraints'].append(dict(
+        LTarget=r'^.+client_id\}$',
+        RTarget='^prod$',
+        Operand='=',
+    ))
+
+    with pytest.raises(HTTPApiNomadClaimsCheckError) as e:
+        NomadClaimsService.check_nomad_config(nomad_config_json, nomad_validator)
+
+    assert 'ROOT.Constraints.1.LTarget' in str(e)

@@ -45,6 +45,11 @@ class NomadClaimsService:
     nomad_claims_structure = dict(
         Name='regex',
         Type='str',
+        Constraints=[dict(
+            LTarget='str',
+            RTarget='str',
+            Operand='str',
+        )],
         TaskGroups=[dict(
             Name='str',
             Tasks=[dict(
@@ -55,7 +60,8 @@ class NomadClaimsService:
                     network_mode='str',
                     image='regex',
                     network_aliases=['str'],
-                    port_map=[dict()],
+                    port_map=[dict()],  # Deprecated since Nomad 0.12
+                    ports=['str'],
                     volumes=['regex'],
                 ),
                 Vault=dict(
