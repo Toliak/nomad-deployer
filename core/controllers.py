@@ -4,19 +4,19 @@ from json import JSONDecodeError
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPNotFound
 from aiohttp.web_urldispatcher import View
-from requests import Response
-from sqlalchemy import select, insert, delete, update
 from jwt import PyJWTError
+from requests import Response
 from sqlalchemy import select, insert, delete
+from sqlalchemy import update
 from sqlalchemy.engine import RowProxy
 from sqlalchemy_aio.base import AsyncResultProxy
 
 from core import settings
 from core.exceptions import HTTPApiAdminTokenInvalid, HTTPApiRoleAlreadyExists, HTTPApiRoleDataInvalid, \
     HTTPApiRoleNotExist, HTTPApiBoundClaimsValidationError, HTTPApiNomadClaimsValidationError, HTTPApiConfigDataInvalid, \
-    HTTPApiConfigAlreadyExists, HTTPApiConfigNotExist, HTTPApiContentTypeInvalid, HTTPApiEmptyBody, \
-    HTTPApiRunDataInvalid
-from core.services import BoundClaimsService, NomadClaimsService, ConfigService, NomadService
+    HTTPApiConfigAlreadyExists, HTTPApiConfigNotExist, HTTPApiContentTypeInvalid, HTTPApiRunDataInvalid, \
+    HTTPApiConfigServiceInvalidJwt
+from core.services import BoundClaimsService, NomadClaimsService, ConfigService, NomadService, ViewUtilities
 from core.tables import JwtRole, JwtConfig
 
 
@@ -79,12 +79,12 @@ class RoleView(AdminView):
             raise HTTPApiRoleDataInvalid('role_name')
 
         try:
-            BoundClaimsService.validate(json.loads(bound_claims))
+            BoundClaimsService.validate(bound_claims)
         except JSONDecodeError:
             raise HTTPApiBoundClaimsValidationError('ROOT')
 
         try:
-            NomadClaimsService.validate(json.loads(nomad_claims))
+            NomadClaimsService.validate(nomad_claims)
         except JSONDecodeError:
             raise HTTPApiNomadClaimsValidationError('ROOT')
 
@@ -105,15 +105,15 @@ class RoleView(AdminView):
             else:
                 result: AsyncResultProxy = await conn.execute(
                     insert(JwtRole).values(dict(role=role,
-                                                bound_claims=bound_claims,
-                                                nomad_claims=nomad_claims))
+                                                bound_claims=json.dumps(bound_claims),
+                                                nomad_claims=json.dumps(nomad_claims)))
                 )
             return web.json_response(dict(id=result.inserted_primary_key[0], ))
 
     async def put(self):
         async def edit_if_exists(role: str, result: RowProxy, bound_claims, nomad_claims, conn, *args):
-            query = update(JwtRole).where(JwtRole.id == result['id']).values(bound_claims=bound_claims,
-                                                                             nomad_claims=nomad_claims)
+            query = update(JwtRole).where(JwtRole.id == result['id']).values(bound_claims=json.dumps(bound_claims),
+                                                                             nomad_claims=json.dumps(nomad_claims))
             await conn.execute(query)
 
         return await self.add_role_with_behaviour(edit_if_exists)

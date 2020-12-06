@@ -14,7 +14,7 @@ async def reformat_error_to_json(request, handler):
                                  status=e.status_code)
     except Exception as e:
         logging.exception("Internal error")
-        return web.json_response(dict(detail='Internal Server Error',
+        return web.json_response(dict(detail=f'Internal Server Error: {str(e)}',
                                       status=500),
                                  status=500)
 

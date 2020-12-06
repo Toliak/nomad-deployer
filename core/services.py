@@ -225,7 +225,10 @@ class ViewUtilities:
     async def get_request_json(request):
         if request.can_read_body is False:
             raise HTTPApiEmptyBody()
+
         data = await request.json()
+
         if type(data) != dict:
             raise HTTPApiInvalidJson()
+
         return data
